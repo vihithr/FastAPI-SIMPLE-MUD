@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>注册 - MUD RPG</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    main { width: min(460px, 94vw); background: #fff; color: #111; border: 1px solid #ddd; border-radius: 10px; padding: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    body.dark main { background: #1f1f1f; color: #f5f5f5; border-color: #333; }
+    h2 { margin: 0 0 4px; }
+    p { margin: 4px 0 12px; color: #555; }
+    label { display: block; margin-top: 10px; font-size: 14px; }
+    input, button { width: 100%; padding: 10px; margin-top: 4px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 14px; }
+    button { background: #2d6cdf; color: #fff; border-color: #1f4fa8; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #log { margin-top: 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: #0b0b0b; color: #cde; padding: 10px; border-radius: 8px; border: 1px solid #333; min-height: 80px; }
+    .links { display: flex; gap: 8px; margin-top: 12px; }
+    .links a { flex: 1; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; border: 1px solid #ccc; }
+    .links a.primary { background: #2d6cdf; color: #fff; border-color: #1f4fa8; }
+    body.dark .links a { border-color: #444; }
+    body.dark #log { background: #111; }
+  </style>
+</head>
+<body>
+  <main>
+    <h2>注册新账号</h2>
+    <p>提交后可前往登录页获取 token。</p>
+    <form id="registerForm">
+      <label>用户名 <input name="username" required /></label>
+      <label>密码 <input name="password" type="password" required /></label>
+      <button type="submit">注册</button>
+    </form>
+    <div class="links">
+      <a class="primary" href="/static/login.html">去登录</a>
+      <a href="/static/index.html">返回主页</a>
+    </div>
+    <div id="log"></div>
+  </main>
+
+  <script>
+    const apiBase = window.location.origin;
+    const logEl = document.getElementById("log");
+    const form = document.getElementById("registerForm");
+
+    const log = (msg, data) => {
+      let line = msg;
+      if (data !== undefined) line += " " + JSON.stringify(data, null, 2);
+      logEl.textContent = line;
+    };
+
+    const request = async (path, method = "GET", body) => {
+      const res = await fetch(apiBase + path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      return res.json();
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const { username, password } = e.target;
+      form.querySelector("button").disabled = true;
+      try {
+        const data = await request("/register", "POST", { username: username.value, password: password.value });
+        log("注册成功", data);
+      } catch (err) {
+        log("注册失败: " + err.message);
+      } finally {
+        form.querySelector("button").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
+

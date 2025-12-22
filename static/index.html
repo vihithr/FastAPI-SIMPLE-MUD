@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUD RPG Web 客户端</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+    header { grid-column: 1 / -1; padding: 12px 16px; background: #222; color: #eee; }
+    main { display: contents; }
+    form, .card { background: #f8f8f8; color: #111; padding: 12px; margin: 12px; border-radius: 8px; border: 1px solid #ddd; }
+    body.dark form, body.dark .card { background: #1f1f1f; color: #f5f5f5; border-color: #333; }
+    label { display: block; margin-top: 8px; font-size: 14px; }
+    input, button, textarea { width: 100%; padding: 8px; margin-top: 4px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+    textarea { height: 160px; resize: vertical; }
+    #log { background: #0b0b0b; color: #cde; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-y: auto; height: calc(100vh - 220px); padding: 12px; margin: 12px; border-radius: 8px; border: 1px solid #333; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .commands { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .cmd-btn { flex: 1 0 48%; min-width: 120px; }
+    .cmd-btn small { display: block; color: #666; font-size: 12px; }
+    body.dark .cmd-btn small { color: #aaa; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .link-btn { display: inline-block; text-align: center; padding: 10px; border-radius: 6px; background: #2d6cdf; color: #fff; text-decoration: none; border: 1px solid #1f4fa8; }
+    .link-btn.secondary { background: #555; border-color: #444; }
+    body.dark .link-btn { background: #3a7bff; border-color: #2554c2; }
+    small { color: #888; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>MUD RPG Web 客户端</h2>
+    <small>先在「注册」或「登录」页面完成操作（自动保存 token），回到此页连接游戏。</small>
+  </header>
+  <main>
+    <section>
+      <div class="card">
+        <strong>快速开始</strong>
+        <div class="actions">
+          <a class="link-btn" href="/static/register.html">注册页面</a>
+          <a class="link-btn" href="/static/login.html">登录页面</a>
+        </div>
+        <small>登录成功后 token 会保存在浏览器 localStorage，回到本页即可直接使用。</small>
+      </div>
+
+      <div class="card">
+        <strong>Token 状态</strong>
+        <div id="tokenStatus" style="margin:6px 0;">未检测</div>
+        <button id="clearTokenBtn" type="button">清除本地 token</button>
+      </div>
+
+      <form id="createCharForm">
+        <strong>创建角色</strong>
+        <label>角色名 <input name="name" required /></label>
+        <button type="submit">创建</button>
+      </form>
+
+      <div class="card">
+        <strong>连接 / 控制</strong>
+        <button id="connectBtn" type="button">连接 WebSocket</button>
+        <button id="disconnectBtn" type="button">断开</button>
+        <div class="row" style="margin-top:8px;">
+          <button id="lookBtn" type="button">look</button>
+          <button id="statsBtn" type="button">stats</button>
+        </div>
+        <label style="margin-top:8px;">命令输入</label>
+        <input id="commandInput" placeholder="如: look / north / say hello" />
+        <button id="sendBtn" type="button">发送命令</button>
+        <div style="margin-top:10px;"><strong>可用指令快捷键</strong></div>
+        <div id="commands" class="commands"></div>
+      </div>
+    </section>
+
+    <section>
+      <div id="log"></div>
+    </section>
+  </main>
+
+  <script>
+    const apiBase = window.location.origin;
+    const wsBase = (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
+    const tokenStorageKey = "mud_token";
+    let token = "";
+    let ws = null;
+    const logEl = document.getElementById("log");
+    const commandInput = document.getElementById("commandInput");
+    const tokenStatus = document.getElementById("tokenStatus");
+
+    const log = (msg, data) => {
+      const time = new Date().toLocaleTimeString();
+      let line = `[${time}] ${msg}`;
+      if (data !== undefined) line += " " + JSON.stringify(data, null, 2);
+      logEl.textContent += line + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    const updateTokenDisplay = () => {
+      if (tokenStatus) tokenStatus.textContent = token ? "已加载 token，可直接连接游戏" : "未登录，请先去登录页面获取 token";
+    };
+
+    const loadToken = () => {
+      const stored = localStorage.getItem(tokenStorageKey);
+      token = stored || "";
+      updateTokenDisplay();
+    };
+
+    const clearToken = () => {
+      localStorage.removeItem(tokenStorageKey);
+      token = "";
+      updateTokenDisplay();
+      log("已清除本地 token");
+    };
+
+    document.getElementById("clearTokenBtn").addEventListener("click", clearToken);
+    loadToken();
+
+    async function request(path, method = "GET", body) {
+      const res = await fetch(apiBase + path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: "Bearer " + token } : {})
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      return res.json();
+    }
+
+    // 创建角色
+    document.getElementById("createCharForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const { name } = e.target;
+      if (!token) return log("请先登录获取 token");
+      try {
+        const data = await request("/character/create", "POST", { name: name.value });
+        log("角色创建成功", data);
+      } catch (err) { log("创建失败", err.message); }
+    });
+
+    // WebSocket
+    document.getElementById("connectBtn").addEventListener("click", () => {
+      if (!token) return log("请先登录获取 token");
+      if (ws) { log("已连接"); return; }
+      ws = new WebSocket(`${wsBase}/ws?token=${encodeURIComponent(token)}`);
+      ws.onopen = () => log("WebSocket 已连接");
+      ws.onclose = () => { log("WebSocket 已关闭"); ws = null; };
+      ws.onerror = (ev) => log("WebSocket 错误", ev);
+      ws.onmessage = (ev) => {
+        try { log("收到", JSON.parse(ev.data)); }
+        catch { log("收到", ev.data); }
+      };
+    });
+
+    document.getElementById("disconnectBtn").addEventListener("click", () => {
+      if (ws) { ws.close(); ws = null; }
+    });
+
+    const sendCommand = (cmd) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return log("WebSocket 未连接");
+      ws.send(JSON.stringify({ action: "command", data: cmd }));
+      log("发送命令", cmd);
+    };
+
+    document.getElementById("sendBtn").addEventListener("click", () => {
+      const cmd = document.getElementById("commandInput").value.trim();
+      if (cmd) sendCommand(cmd);
+    });
+
+    document.getElementById("commandInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); const cmd = e.target.value.trim(); if (cmd) sendCommand(cmd); }
+    });
+
+    document.getElementById("lookBtn").addEventListener("click", () => sendCommand("look"));
+    document.getElementById("statsBtn").addEventListener("click", () => sendCommand("stats"));
+
+    // 可用指令按钮列表
+    const commandList = [
+      { label: "look / l", command: "look", desc: "查看当前房间" },
+      { label: "stats", command: "stats", desc: "查看角色属性" },
+      { label: "north / n", command: "north", desc: "向北移动" },
+      { label: "south / s", command: "south", desc: "向南移动" },
+      { label: "east / e", command: "east", desc: "向东移动" },
+      { label: "west / w", command: "west", desc: "向西移动" },
+      { label: "inventory / inv", command: "inventory", desc: "查看物品栏" },
+      { label: "equipment / eq", command: "equipment", desc: "查看装备" },
+      { label: "help", command: "help", desc: "查看所有命令" },
+      { label: "attack <目标>", template: "attack ", desc: "攻击目标" },
+      { label: "say <消息>", template: "say ", desc: "在房间说话" },
+      { label: "equip <物品>", template: "equip ", desc: "装备物品" },
+      { label: "unequip <槽位>", template: "unequip ", desc: "卸下装备" },
+      { label: "use <物品>", template: "use ", desc: "使用物品" }
+    ];
+
+    const commandsEl = document.getElementById("commands");
+    commandList.forEach((item) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cmd-btn";
+      btn.title = item.desc || item.label;
+      btn.innerHTML = `<div>${item.label}</div>${item.desc ? `<small>${item.desc}</small>` : ""}`;
+      btn.addEventListener("click", () => {
+        if (item.template !== undefined) {
+          commandInput.value = item.template;
+          commandInput.focus();
+          commandInput.selectionStart = commandInput.selectionEnd = item.template.length;
+        } else {
+          sendCommand(item.command);
+        }
+      });
+      commandsEl.appendChild(btn);
+    });
+  </script>
+</body>
+</html>
+

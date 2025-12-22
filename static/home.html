@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUD RPG - 首页</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #2c3e50 0, #050608 55%, #000 100%);
+      color: #f5f5f5;
+    }
+    main {
+      width: min(640px, 96vw);
+      padding: 24px 22px 20px;
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(11,14,32,0.92), rgba(9,9,24,0.94));
+      box-shadow: 0 18px 45px rgba(0,0,0,0.8);
+      border: 1px solid rgba(103,140,255,0.35);
+      backdrop-filter: blur(12px);
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .subtitle {
+      margin-top: 4px;
+      font-size: 14px;
+      color: #9ca9ff;
+    }
+    .desc {
+      margin-top: 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #c8d0ff;
+    }
+    .features {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      font-size: 13px;
+    }
+    .feature {
+      padding: 8px 9px;
+      border-radius: 10px;
+      background: radial-gradient(circle at top left, rgba(90,120,255,0.3), rgba(10,11,32,0.9));
+      border: 1px solid rgba(123,150,255,0.5);
+    }
+    .feature strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 13px;
+      color: #f7f7ff;
+    }
+    .actions {
+      margin-top: 18px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      flex: 1 1 150px;
+      min-width: 0;
+      padding: 11px 14px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: linear-gradient(135deg, #4a6bff, #7b5cff);
+      color: #fff;
+      text-align: center;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+    .btn.secondary {
+      background: transparent;
+      border-color: rgba(150,164,255,0.7);
+      color: #dde1ff;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.65);
+    }
+    .meta {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #8b94c9;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .status-pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(22,163,74,0.16);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.6);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MUD RPG</h1>
+    <div class="subtitle">文本世界 · 回合制冒险</div>
+    <p class="desc">
+      注册一个冒险者，走出新手村，在房间之间探索、战斗怪物、收集装备和药水。
+      所有交互都通过指令完成，像传统的 MUD 一样，但通过现代 Web 界面体验。
+    </p>
+    <div class="features">
+      <div class="feature">
+        <strong>即时战斗</strong>
+        回合制指令战斗，攻防属性与装备都会影响伤害。
+      </div>
+      <div class="feature">
+        <strong>装备与背包</strong>
+        查看物品栏、装备武器防具、使用药水恢复生命与魔力。
+      </div>
+      <div class="feature">
+        <strong>轻量指令</strong>
+        使用 north / look / stats / attack 等简单命令操控角色。
+      </div>
+    </div>
+    <div class="actions">
+      <a id="startBtn" class="btn" href="javascript:void 0;">开始游戏</a>
+      <a class="btn secondary" href="/auth">登录 / 注册</a>
+    </div>
+    <div class="meta">
+      <span id="tokenHint">正在检测本地登录状态…</span>
+      <span class="status-pill" id="statusPill">后端状态未知</span>
+    </div>
+  </main>
+
+  <script type="module">
+    import { getToken } from "/static/js/auth.js";
+    import { healthCheck } from "/static/js/api.js";
+
+    const startBtn = document.getElementById("startBtn");
+    const tokenHint = document.getElementById("tokenHint");
+    const statusPill = document.getElementById("statusPill");
+
+    const token = getToken();
+    if (token) {
+      tokenHint.textContent = "已检测到本地登录信息，可直接进入游戏。";
+      startBtn.textContent = "进入游戏世界";
+    } else {
+      tokenHint.textContent = "尚未登录，请先前往登录 / 注册。";
+      startBtn.textContent = "前往登录并开始";
+    }
+
+    startBtn.addEventListener("click", () => {
+      if (getToken()) {
+        window.location.href = "/game";
+      } else {
+        window.location.href = "/auth";
+      }
+    });
+
+    (async () => {
+      try {
+        const data = await healthCheck();
+        if (data && data.status === "ok") {
+          statusPill.textContent = "后端在线";
+        } else {
+          statusPill.textContent = "后端状态异常";
+        }
+      } catch {
+        statusPill.textContent = "无法连接后端";
+        statusPill.style.background = "rgba(220,38,38,0.14)";
+        statusPill.style.color = "#fecaca";
+        statusPill.style.borderColor = "rgba(248,113,113,0.8)";
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
