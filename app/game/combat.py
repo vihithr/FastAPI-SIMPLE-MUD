@@ -5,7 +5,7 @@ from ..models import Character, CombatLog
 from ..websocket.manager import manager
 
 
-def calculate_damage(attacker: Character, defender: Character) -> int:
+def calculate_damage(attacker: Character, defender: Character = None, defender_defense: int = 0) -> int:
     """计算伤害"""
     base_damage = attacker.attack
     # 添加随机波动 (80% - 120%)
@@ -13,10 +13,50 @@ def calculate_damage(attacker: Character, defender: Character) -> int:
     damage = int(base_damage * damage_multiplier)
     
     # 防御减免
-    defense_reduction = defender.defense * 0.5
+    if defender:
+        defense_reduction = defender.defense * 0.5
+    else:
+        defense_reduction = defender_defense * 0.5
     final_damage = max(1, int(damage - defense_reduction))
     
     return final_damage
+
+
+def attack_training_dummy(db: Session, attacker: Character) -> dict:
+    """攻击训练场测试靶子"""
+    # 测试靶子属性：高血量，低防御，不会反击
+    dummy_defense = 0
+    dummy_max_hp = 1000
+    dummy_hp = dummy_max_hp  # 测试靶子总是满血
+    
+    # 计算伤害
+    damage = calculate_damage(attacker, defender_defense=dummy_defense)
+    
+    # 给予少量经验值（训练奖励）
+    exp_gain = 5
+    attacker.exp += exp_gain
+    level_up = check_level_up(db, attacker)
+    
+    db.commit()
+    
+    attack_message = f"你对测试靶子造成了 {damage} 点伤害！(测试靶子剩余生命值: {dummy_hp - damage}/{dummy_max_hp})\n获得 {exp_gain} 点训练经验。"
+    if level_up:
+        attack_message += f"\n恭喜！你升级了！当前等级: {attacker.level}"
+    
+    return {
+        "type": "combat",
+        "message": attack_message,
+        "data": {
+            "attacker": attacker.name,
+            "defender": "测试靶子",
+            "damage": damage,
+            "defender_hp": dummy_hp - damage,
+            "defender_max_hp": dummy_max_hp,
+            "exp_gained": exp_gain,
+            "level_up": level_up,
+            "is_training_dummy": True
+        }
+    }
 
 
 def attack_character(db: Session, attacker: Character, defender_name: str) -> dict:
@@ -31,6 +71,10 @@ def attack_character(db: Session, attacker: Character, defender_name: str) -> di
                 "message": "无法获取房间信息"
             }
         
+        # 检查是否是训练场测试靶子
+        if room.id == 4 and defender_name.lower() in ["测试靶子", "靶子", "dummy", "target"]:
+            return attack_training_dummy(db, attacker)
+        
         # 获取房间内的其他角色
         online_players = manager.get_online_characters_in_room(room.id, db)
         defender_info = None
@@ -39,7 +83,22 @@ def attack_character(db: Session, attacker: Character, defender_name: str) -> di
                 defender_info = p
                 break
         
+        # 如果没找到其他玩家，检查是否攻击自己
         if not defender_info:
+            # 检查是否攻击自己
+            if attacker.name.lower() == defender_name.lower():
+                return {
+                    "type": "error",
+                    "message": "你不能攻击自己！"
+                }
+            
+            # 检查是否是训练场测试靶子（如果名字不完全匹配）
+            if room.id == 4:
+                return {
+                    "type": "error",
+                    "message": f"找不到目标 '{defender_name}'。在训练场，你可以攻击 '测试靶子' 来练习。"
+                }
+            
             return {
                 "type": "error",
                 "message": f"找不到目标 '{defender_name}' 或目标不在同一房间"
@@ -55,6 +114,13 @@ def attack_character(db: Session, attacker: Character, defender_name: str) -> di
             "message": f"找不到目标 '{defender_name}'"
         }
     
+    # 防止攻击自己
+    if attacker.id == defender.id:
+        return {
+            "type": "error",
+            "message": "你不能攻击自己！"
+        }
+    
     # 检查是否在同一房间
     if attacker.room_id != defender.room_id:
         return {
@@ -62,7 +128,7 @@ def attack_character(db: Session, attacker: Character, defender_name: str) -> di
             "message": "目标不在同一房间"
         }
     
-    # 检查目标是否在线
+    # 检查目标是否在线（对于玩家角色）
     if defender.id not in manager.character_to_user:
         return {
             "type": "error",

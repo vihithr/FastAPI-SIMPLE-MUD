@@ -88,6 +88,11 @@ def look_room(db: Session, character: Character) -> dict:
     exits_text = ", ".join(exits_info.keys()) if exits_info else "无"
     
     message = f"{room.name}\n\n{room.description}\n\n"
+    
+    # 如果是训练场，显示测试靶子信息
+    if room.id == 4:
+        message += "这里有一个测试靶子，你可以使用 'attack 测试靶子' 来练习战斗。\n\n"
+    
     if other_players:
         player_names = ", ".join([p["name"] for p in other_players])
         message += f"房间内的其他玩家: {player_names}\n\n"

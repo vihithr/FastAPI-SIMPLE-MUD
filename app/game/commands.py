@@ -214,31 +214,38 @@ async def process_command(db: Session, character: Character, command: str) -> di
         target_name = " ".join(args)
         result = attack_character(db, character, target_name)
 
-        # 如果战斗成功，通知防御者
-        if result.get("defender_id") and result.get("defender_message"):
+        # 如果战斗成功，通知防御者（排除测试靶子和自己）
+        if result.get("defender_id") and result.get("defender_message") and not result.get("data", {}).get("is_training_dummy"):
             defender_id = result["defender_id"]
-            if defender_id in manager.character_to_user:
+            # 确保不是攻击自己，并且防御者在线
+            if defender_id != character.id and defender_id in manager.character_to_user:
                 user_id = manager.character_to_user[defender_id]
-                await manager.send_personal_message(
-                    {
-                        "type": "combat",
-                        "message": result["defender_message"],
-                        "data": result.get("data", {})
-                    },
-                    user_id
-                )
+                try:
+                    await manager.send_personal_message(
+                        {
+                            "type": "combat",
+                            "message": result["defender_message"],
+                            "data": result.get("data", {})
+                        },
+                        user_id
+                    )
+                except Exception as e:
+                    print(f"Error sending combat message to defender {defender_id}: {e}")
 
-        # 广播战斗消息到房间
-        if result["type"] == "combat":
-            await manager.broadcast_to_room(
-                {
-                    "type": "info",
-                    "message": f"{character.name} 攻击了 {result['data'].get('defender', '目标')}"
-                },
-                character.room_id,
-                exclude_character_id=character.id,
-                db=db
-            )
+        # 广播战斗消息到房间（排除测试靶子）
+        if result["type"] == "combat" and not result.get("data", {}).get("is_training_dummy"):
+            try:
+                await manager.broadcast_to_room(
+                    {
+                        "type": "info",
+                        "message": f"{character.name} 攻击了 {result['data'].get('defender', '目标')}"
+                    },
+                    character.room_id,
+                    exclude_character_id=character.id,
+                    db=db
+                )
+            except Exception as e:
+                print(f"Error broadcasting combat message: {e}")
 
         return result
 
