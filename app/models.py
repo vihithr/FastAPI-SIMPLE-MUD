@@ -50,10 +50,12 @@ class Room(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     exits = Column(JSON, default={})  # {"north": 2, "south": 1, ...}
+    special_properties = Column(JSON, default={})  # 房间特殊属性，如训练靶子等
 
     # 关系
     characters = relationship("Character", back_populates="room")
     room_commands = relationship("RoomCommand", back_populates="room", cascade="all, delete-orphan")
+    npcs = relationship("NPC", back_populates="room", cascade="all, delete-orphan")
 
 
 class Item(Base):
@@ -147,3 +149,33 @@ class RoomCommand(Base):
     # 关系
     room = relationship("Room", back_populates="room_commands")
     command = relationship("Command", back_populates="room_commands")
+
+
+class GameConfig(Base):
+    """游戏配置表 - 存储所有可配置的游戏规则"""
+    __tablename__ = "game_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)  # 配置键
+    value = Column(JSON, nullable=False)  # 配置值（支持复杂结构）
+    category = Column(String(50), index=True)  # 分类：combat, leveling, world等
+    description = Column(Text)  # 配置说明
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class NPC(Base):
+    """NPC表 - 包括训练靶子、商店NPC等"""
+    __tablename__ = "npcs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    type = Column(String(50), index=True)  # training_dummy, shopkeeper, quest_giver等
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
+    # NPC属性（JSON格式，灵活存储不同类型NPC的数据）
+    properties = Column(JSON, default={})
+    # 例如训练靶子: {"defense": 0, "max_hp": 1000, "hp": 1000, "is_invincible": true}
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # 关系
+    room = relationship("Room", back_populates="npcs")

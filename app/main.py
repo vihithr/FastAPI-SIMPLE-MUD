@@ -221,29 +221,54 @@ async def websocket_endpoint(
             })
             
             # 发送当前房间信息
-            from .game.player import look_room
-            room_info = look_room(db, character)
+            from .game.services.character_service import CharacterService
+            character_service = CharacterService(db)
+            room_info = character_service.look_room(character)
             await websocket.send_json(room_info)
             
             # 处理消息循环
             while True:
-                data = await websocket.receive_json()
-                
-                # 处理命令
-                if "action" in data and data["action"] == "command":
-                    command = data.get("data", "")
-                    result = await process_command(db, character, command)
+                try:
+                    data = await websocket.receive_json()
                     
-                    # 发送结果
-                    await websocket.send_json(result)
-                    
-                    # 刷新角色数据
-                    db.refresh(character)
-                else:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "无效的消息格式。请使用: {\"action\": \"command\", \"data\": \"<命令>\"}"
-                    })
+                    # 处理命令
+                    if "action" in data and data["action"] == "command":
+                        command = data.get("data", "")
+                        try:
+                            result = await process_command(db, character, command)
+                            
+                            # 发送结果
+                            await websocket.send_json(result)
+                            
+                            # 刷新角色数据
+                            db.refresh(character)
+                        except Exception as e:
+                            print(f"Error processing command '{command}': {e}")
+                            import traceback
+                            traceback.print_exc()
+                            # 发送错误消息给客户端，但不关闭连接
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": f"处理命令时发生错误: {str(e)}"
+                            })
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "无效的消息格式。请使用: {\"action\": \"command\", \"data\": \"<命令>\"}"
+                        })
+                except Exception as e:
+                    # 如果是 JSON 解析错误或其他非致命错误，记录但不关闭连接
+                    print(f"Error in WebSocket message loop: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    try:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"处理消息时发生错误: {str(e)}"
+                        })
+                    except:
+                        # 如果无法发送消息，可能是连接已断开，跳出循环
+                        break
         
         except WebSocketDisconnect:
             manager.disconnect(user.id, character.id, character.room_id)

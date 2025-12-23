@@ -1,10 +1,10 @@
-"""游戏世界定义"""
+"""游戏世界定义 - 支持数据库初始化"""
 from sqlalchemy.orm import Session
-from ..models import Room, Item, Command, RoomCommand
+from ..models import Room, Item, Command, RoomCommand, GameConfig, NPC
 from typing import Dict, List
 
 
-# 预定义的房间数据
+# 预定义的房间数据（用于初始化）
 ROOMS_DATA = [
     {
         "id": 1,
@@ -28,7 +28,8 @@ ROOMS_DATA = [
         "id": 4,
         "name": "训练场",
         "description": "一个宽敞的训练场，地上散落着训练用的木桩。这里是提升实力的好地方。",
-        "exits": {"south": 3, "west": 2, "north": 5}
+        "exits": {"south": 3, "west": 2, "north": 5},
+        "special_properties": {"has_training_dummy": True}
     },
     {
         "id": 5,
@@ -56,7 +57,7 @@ ROOMS_DATA = [
     }
 ]
 
-# 预定义的物品数据
+# 预定义的物品数据（用于初始化）
 ITEMS_DATA = [
     {
         "id": 1,
@@ -132,6 +133,79 @@ ITEMS_DATA = [
     }
 ]
 
+# 游戏配置数据（用于初始化）
+GAME_CONFIG_DATA = [
+    {
+        "key": "combat.attack_modifier_ratio",
+        "value": 0.5,
+        "category": "combat",
+        "description": "攻击力修正比例（用于命中判定）"
+    },
+    {
+        "key": "combat.defense_reduction_ratio",
+        "value": 0.5,
+        "category": "combat",
+        "description": "防御减免比例"
+    },
+    {
+        "key": "combat.damage_modifier_ratio",
+        "value": 0.33,
+        "category": "combat",
+        "description": "伤害修正比例"
+    },
+    {
+        "key": "combat.exp_gain_multiplier",
+        "value": 20,
+        "category": "combat",
+        "description": "击败敌人经验倍数"
+    },
+    {
+        "key": "leveling.exp_per_level",
+        "value": 100,
+        "category": "leveling",
+        "description": "每级所需经验倍数"
+    },
+    {
+        "key": "leveling.hp_per_level",
+        "value": 20,
+        "category": "leveling",
+        "description": "每级HP提升"
+    },
+    {
+        "key": "leveling.mp_per_level",
+        "value": 10,
+        "category": "leveling",
+        "description": "每级MP提升"
+    },
+    {
+        "key": "leveling.attack_per_level",
+        "value": 2,
+        "category": "leveling",
+        "description": "每级攻击提升"
+    },
+    {
+        "key": "leveling.defense_per_level",
+        "value": 1,
+        "category": "leveling",
+        "description": "每级防御提升"
+    },
+]
+
+# NPC数据（用于初始化）
+NPC_DATA = [
+    {
+        "name": "测试靶子",
+        "type": "training_dummy",
+        "room_id": 4,  # 训练场
+        "properties": {
+            "defense": 0,
+            "max_hp": 1000,
+            "hp": 1000,
+            "is_invincible": True
+        }
+    }
+]
+
 
 def init_world(db: Session):
     """初始化游戏世界"""
@@ -143,7 +217,8 @@ def init_world(db: Session):
                 id=room_data["id"],
                 name=room_data["name"],
                 description=room_data["description"],
-                exits=room_data["exits"]
+                exits=room_data["exits"],
+                special_properties=room_data.get("special_properties", {})
             )
             db.add(room)
     
@@ -161,6 +236,33 @@ def init_world(db: Session):
                 value=item_data["value"]
             )
             db.add(item)
+    
+    # 初始化游戏配置
+    for config_data in GAME_CONFIG_DATA:
+        existing_config = db.query(GameConfig).filter(GameConfig.key == config_data["key"]).first()
+        if not existing_config:
+            config = GameConfig(
+                key=config_data["key"],
+                value=config_data["value"],
+                category=config_data["category"],
+                description=config_data["description"]
+            )
+            db.add(config)
+    
+    # 初始化NPC
+    for npc_data in NPC_DATA:
+        existing_npc = db.query(NPC).filter(
+            NPC.name == npc_data["name"],
+            NPC.room_id == npc_data["room_id"]
+        ).first()
+        if not existing_npc:
+            npc = NPC(
+                name=npc_data["name"],
+                type=npc_data["type"],
+                room_id=npc_data["room_id"],
+                properties=npc_data["properties"]
+            )
+            db.add(npc)
     
     db.commit()
 
@@ -316,4 +418,3 @@ def get_room_exits(room: Room) -> Dict[str, str]:
         exit_names[direction_map.get(direction, direction)] = target_room_id
     
     return exit_names
-
