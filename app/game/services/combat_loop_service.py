@@ -184,6 +184,12 @@ class CombatLoopService:
                 exclude_character_id=attacker.id,
                 db=self.db
             )
+        
+        # 通知状态变化（战斗循环中的状态更新）
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        await status_notifier.notify_status_change(attacker, "战斗循环状态更新")
+        await status_notifier.notify_status_change(defender, "战斗循环状态更新")
     
     async def _end_combat(self, attacker: Character, defender: Character, reason: str):
         """结束战斗"""
@@ -228,6 +234,12 @@ class CombatLoopService:
                 "message": msg["defender"],
                 "data": {"combat_end": True}
             }, defender_user_id)
+        
+        # 通知状态变化（战斗结束）
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        await status_notifier.notify_status_change(attacker, "战斗结束状态更新")
+        await status_notifier.notify_status_change(defender, "战斗结束状态更新")
         
         self._cleanup_combat(attacker.id, defender.id)
     

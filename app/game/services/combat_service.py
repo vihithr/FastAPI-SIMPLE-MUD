@@ -304,6 +304,12 @@ class CombatService:
         # 提交数据库更改
         self.db.commit()
         
+        # 通知状态变化
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        status_notifier.notify_status_change_sync(attacker, "战斗状态更新")
+        status_notifier.notify_status_change_sync(defender, "战斗状态更新")
+        
         return {
             "type": "combat",
             "message": attack_message,
@@ -399,6 +405,11 @@ class CombatService:
                 attack_message += f"\n恭喜！你升级了！当前等级: {attacker.level}"
             attack_message += f"\n获得 {exp_gain} 点训练经验。"
             
+            # 通知状态变化
+            from .status_notifier import CharacterStatusNotifier
+            status_notifier = CharacterStatusNotifier(self.db)
+            status_notifier.notify_status_change_sync(attacker, "训练状态更新")
+            
             return {
                 "type": "combat",
                 "message": attack_message,
@@ -446,6 +457,12 @@ class CombatService:
                 character.attack += leveling_config.get("attack_per_level", 2)
                 character.defense += leveling_config.get("defense_per_level", 1)
                 self.db.commit()
+                
+                # 通知状态变化（升级）
+                from .status_notifier import CharacterStatusNotifier
+                status_notifier = CharacterStatusNotifier(self.db)
+                status_notifier.notify_status_change_sync(character, "升级状态更新")
+                
                 return True
             
             return False
@@ -462,6 +479,11 @@ class CombatService:
         character.hp = min(character.max_hp, character.hp + amount)
         healed = character.hp - old_hp
         self.db.commit()
+        
+        # 通知状态变化
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        status_notifier.notify_status_change_sync(character, "治疗状态更新")
         
         return {
             "type": "success",

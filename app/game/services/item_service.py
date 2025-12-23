@@ -96,6 +96,11 @@ class ItemService:
         
         self.db.commit()
         
+        # 通知状态变化
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        status_notifier.notify_status_change_sync(character, "装备状态更新")
+        
         return {
             "type": "success",
             "message": f"你装备了 {target_item.name}",
@@ -126,6 +131,11 @@ class ItemService:
         # 删除装备记录
         self.item_repo.unequip_item(character.id, slot)
         self.db.commit()
+        
+        # 通知状态变化
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        status_notifier.notify_status_change_sync(character, "卸下装备状态更新")
         
         return {
             "type": "success",
@@ -182,6 +192,11 @@ class ItemService:
         # 移除物品
         self.item_repo.remove_from_inventory(character.id, target_item.id, 1)
         self.db.commit()
+        
+        # 通知状态变化
+        from .status_notifier import CharacterStatusNotifier
+        status_notifier = CharacterStatusNotifier(self.db)
+        status_notifier.notify_status_change_sync(character, "使用物品状态更新")
         
         return {
             "type": "success",

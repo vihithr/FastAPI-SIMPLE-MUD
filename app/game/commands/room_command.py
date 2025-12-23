@@ -52,6 +52,12 @@ class RoomCommandHandler(BaseCommand):
             # 训练命令
             character.exp += 10
             db.commit()
+            
+            # 通知状态变化
+            from ..services.status_notifier import CharacterStatusNotifier
+            status_notifier = CharacterStatusNotifier(db)
+            status_notifier.notify_status_change_sync(character, "训练状态更新")
+            
             return {
                 "type": "success",
                 "message": "你在训练场刻苦训练，获得了 10 点经验。",
@@ -76,6 +82,12 @@ class RoomCommandHandler(BaseCommand):
             character.mp = min(character.max_mp, character.mp + 10)
             restored = character.mp - old_mp
             db.commit()
+            
+            # 通知状态变化
+            from ..services.status_notifier import CharacterStatusNotifier
+            status_notifier = CharacterStatusNotifier(db)
+            status_notifier.notify_status_change_sync(character, "学习状态更新")
+            
             return {
                 "type": "success",
                 "message": f"你在魔法学院研读卷轴，恢复了 {restored} 点魔法值。",

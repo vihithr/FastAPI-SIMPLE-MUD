@@ -394,6 +394,9 @@ export function setupGamePage() {
         }
       } else if (t === "combat") {
         appendLog("combat", data.message || "");
+      } else if (t === "status_update") {
+        // 状态更新消息，静默处理，只更新UI，不显示日志
+        // 这样可以避免状态更新时产生过多的日志消息
       } else if (data.message) {
         // 其它类型但有 message 的，直接展示 message
         appendLog("info", data.message);
@@ -412,6 +415,7 @@ export function setupGamePage() {
         renderCommands(data.data.available_commands);
       }
 
+      // 若消息中包含 character 数据，更新角色面板（包括 status_update 类型）
       if (data.character) {
         updateCharacterPanel(data.character);
       }
