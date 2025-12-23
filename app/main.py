@@ -247,17 +247,28 @@ async def websocket_endpoint(
                             import traceback
                             traceback.print_exc()
                             # 发送错误消息给客户端，但不关闭连接
+                            try:
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "message": f"处理命令时发生错误: {str(e)}"
+                                })
+                            except:
+                                # 如果无法发送消息，可能是连接已断开，跳出循环
+                                break
+                    else:
+                        try:
                             await websocket.send_json({
                                 "type": "error",
-                                "message": f"处理命令时发生错误: {str(e)}"
+                                "message": "无效的消息格式。请使用: {\"action\": \"command\", \"data\": \"<命令>\"}"
                             })
-                    else:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": "无效的消息格式。请使用: {\"action\": \"command\", \"data\": \"<命令>\"}"
-                        })
+                        except:
+                            # 如果无法发送消息，可能是连接已断开，跳出循环
+                            break
+                except WebSocketDisconnect:
+                    # WebSocket 正常断开，重新抛出让外层处理
+                    raise
                 except Exception as e:
-                    # 如果是 JSON 解析错误或其他非致命错误，记录但不关闭连接
+                    # JSON 解析错误或其他非致命错误，记录但不关闭连接
                     print(f"Error in WebSocket message loop: {e}")
                     import traceback
                     traceback.print_exc()
@@ -271,18 +282,23 @@ async def websocket_endpoint(
                         break
         
         except WebSocketDisconnect:
+            # 正常的 WebSocket 断开连接，不需要记录为错误
             manager.disconnect(user.id, character.id, character.room_id)
             
             # 通知房间内其他玩家
-            await manager.broadcast_to_room(
-                {
-                    "type": "info",
-                    "message": f"{character.name} 离开了游戏"
-                },
-                character.room_id,
-                exclude_character_id=character.id,
-                db=db
-            )
+            try:
+                await manager.broadcast_to_room(
+                    {
+                        "type": "info",
+                        "message": f"{character.name} 离开了游戏"
+                    },
+                    character.room_id,
+                    exclude_character_id=character.id,
+                    db=db
+                )
+            except Exception as e:
+                # 广播失败不影响断开连接的正常处理
+                print(f"Error broadcasting disconnect message: {e}")
         except Exception as e:
             print(f"WebSocket error for user={user.id} character={character.id}: {e}")
             manager.disconnect(user.id, character.id, character.room_id)

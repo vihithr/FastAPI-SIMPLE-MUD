@@ -63,30 +63,42 @@ class CharacterStatusNotifier:
         """
         通知角色状态变化（同步包装方法，可在同步上下文中调用）
         
+        注意：这个方法会尝试在后台发送通知，如果失败会静默失败，不会阻塞调用者。
+        
         Args:
             character: 角色对象
             reason: 状态变化的原因（可选，用于调试）
         """
         try:
             # 尝试获取当前事件循环
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 如果事件循环正在运行，创建后台任务
-                asyncio.create_task(self.notify_status_change(character, reason))
-            else:
-                # 如果事件循环未运行，直接运行
-                loop.run_until_complete(self.notify_status_change(character, reason))
-        except RuntimeError:
-            # 如果没有事件循环，创建一个新的
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self.notify_status_change(character, reason))
-                loop.close()
-            except Exception as e:
-                print(f"Error creating event loop for status notification: {e}")
+                loop = asyncio.get_running_loop()
+                # 如果事件循环正在运行，创建后台任务（不等待）
+                loop.create_task(self.notify_status_change(character, reason))
+            except RuntimeError:
+                # 如果没有运行中的事件循环，尝试获取或创建
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # 如果事件循环正在运行，创建后台任务
+                        loop.create_task(self.notify_status_change(character, reason))
+                    else:
+                        # 如果事件循环未运行，直接运行
+                        loop.run_until_complete(self.notify_status_change(character, reason))
+                except RuntimeError:
+                    # 如果没有事件循环，创建一个新的
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self.notify_status_change(character, reason))
+                    finally:
+                        loop.close()
         except Exception as e:
-            print(f"Error in notify_status_change_sync: {e}")
+            # 静默失败，不阻塞调用者
+            # 只在调试时打印错误
+            import os
+            if os.getenv("DEBUG", "").lower() == "true":
+                print(f"Error in notify_status_change_sync for character {character.id}: {e}")
     
     async def notify_multiple_characters(self, characters: List[Character], reason: Optional[str] = None):
         """
