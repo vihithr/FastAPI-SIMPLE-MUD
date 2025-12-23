@@ -32,8 +32,36 @@ class CombatCommand(Command):
         config_service = ConfigService(db)
         combat_service = CombatService(db, config_service)
         
+        # 检查是否是测试靶子
+        from ...repositories.room_repository import RoomRepository
+        from ...repositories.npc_repository import NPCRepository
+        room_repo = RoomRepository(db)
+        npc_repo = NPCRepository(db)
+        
+        if character.room_id:
+            room = room_repo.get_by_id(character.room_id)
+            if room:
+                training_dummy = npc_repo.get_training_dummy_in_room(room.id)
+                if training_dummy and target_name.lower() in ["测试靶子", "靶子", "dummy", "target", training_dummy.name.lower()]:
+                    # 处理测试靶子攻击
+                    combat_loop = CombatLoopService(db)
+                    
+                    # 检查是否已经在训练中
+                    if character.in_combat_with is not None and character.in_combat_with < 0:
+                        # 已经在训练中，提示用户
+                        result = {
+                            "type": "info",
+                            "message": "你正在训练中，战斗会自动进行。使用 'flee' 命令可以停止训练。"
+                        }
+                    else:
+                        # 不在训练中，启动训练循环
+                        result = await combat_loop.start_training_dummy_combat(character, training_dummy)
+                    
+                    return result
+        
+        # 处理玩家之间的战斗
         # 检查是否已经在战斗中
-        if character.in_combat_with is not None:
+        if character.in_combat_with is not None and character.in_combat_with > 0:
             # 如果已经在战斗中，执行单次攻击
             result = combat_service.attack_character(character, target_name, start_combat_loop=False)
         else:

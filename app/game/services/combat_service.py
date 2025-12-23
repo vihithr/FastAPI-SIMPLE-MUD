@@ -1,12 +1,15 @@
 """战斗服务 - 业务逻辑层"""
 import random
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session
 from ...models import Character, CombatLog
 from ...repositories.character_repository import CharacterRepository
 from ...repositories.npc_repository import NPCRepository
 from ...repositories.room_repository import RoomRepository
 from .config_service import ConfigService
+
+if TYPE_CHECKING:
+    from ...models import NPC
 
 
 def roll_dice(sides: int, count: int = 1) -> int:
@@ -323,7 +326,7 @@ class CombatService:
     def attack_training_dummy(
         self,
         attacker: Character,
-        dummy: 'NPC',
+        dummy: "NPC",
         combat_config: Dict[str, float]
     ) -> Dict:
         """攻击训练场测试靶子"""
@@ -332,7 +335,8 @@ class CombatService:
             dummy_props = dummy.properties or {}
             dummy_defense = dummy_props.get("defense", 0)
             dummy_max_hp = dummy_props.get("max_hp", 1000)
-            dummy_hp = dummy_max_hp  # 测试靶子总是满血
+            # 读取当前HP，如果不存在则使用最大HP
+            dummy_hp = dummy_props.get("hp", dummy_max_hp)
             
             # 使用无状态函数解析攻击
             combat_result = resolve_attack(
@@ -343,6 +347,21 @@ class CombatService:
                 combat_config=combat_config
             )
             
+            # 更新测试靶子的HP（即使未命中也要更新，因为可能之前有伤害）
+            dummy_hp_after = combat_result["defender_hp_after"]
+            was_destroyed = False
+            
+            # 如果测试靶子HP降到0或以下，自动恢复到满血（因为测试靶子是无敌的）
+            if dummy_hp_after <= 0:
+                was_destroyed = True
+                dummy_hp_after = dummy_max_hp
+            
+            dummy_props["hp"] = dummy_hp_after
+            dummy.properties = dummy_props
+            # 标记对象为已修改，确保SQLAlchemy会保存更改
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(dummy, "properties")
+            
             # 构建消息
             if combat_result["miss"]:
                 attack_message = f"你攻击测试靶子，但未命中！(掷骰: {combat_result['roll_result']})"
@@ -350,7 +369,10 @@ class CombatService:
             else:
                 damage = combat_result["damage"]
                 critical_text = " (暴击！)" if combat_result["critical"] else ""
-                attack_message = f"你对测试靶子造成了 {damage} 点伤害{critical_text}！(掷骰: {combat_result['roll_result']}, 测试靶子剩余生命值: {combat_result['defender_hp_after']}/{dummy_max_hp})"
+                if was_destroyed:
+                    attack_message = f"你对测试靶子造成了 {damage} 点伤害{critical_text}！(掷骰: {combat_result['roll_result']})\n测试靶子被摧毁，但立即恢复了！"
+                else:
+                    attack_message = f"你对测试靶子造成了 {damage} 点伤害{critical_text}！(掷骰: {combat_result['roll_result']}, 测试靶子剩余生命值: {dummy_hp_after}/{dummy_max_hp})"
                 exp_gain = 5  # 命中给更多经验
             
             # 给予经验值（训练奖励）
@@ -364,6 +386,7 @@ class CombatService:
                 print(f"Error in check_level_up during training dummy attack: {e}")
                 self.db.commit()
             
+            # 提交所有更改（包括NPC的HP更新）
             if not level_up:
                 try:
                     self.db.commit()
@@ -383,7 +406,7 @@ class CombatService:
                     "attacker": attacker.name,
                     "defender": "测试靶子",
                     "damage": combat_result["damage"],
-                    "defender_hp": combat_result["defender_hp_after"],
+                    "defender_hp": dummy_hp_after,
                     "defender_max_hp": dummy_max_hp,
                     "exp_gained": exp_gain,
                     "level_up": level_up,

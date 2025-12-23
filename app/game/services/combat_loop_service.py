@@ -2,7 +2,7 @@
 import asyncio
 from typing import Dict, Optional
 from sqlalchemy.orm import Session
-from ...models import Character
+from ...models import Character, NPC
 from .combat_service import CombatService
 from .config_service import ConfigService
 from ...websocket.manager import manager
@@ -283,5 +283,177 @@ class CombatLoopService:
         return {
             "type": "error",
             "message": "无法找到战斗对手"
+        }
+    
+    async def start_training_dummy_combat(self, attacker: Character, dummy: NPC) -> Dict:
+        """开始与测试靶子的战斗循环"""
+        # 检查是否已经在战斗中
+        if attacker.in_combat_with is not None:
+            return {
+                "type": "error",
+                "message": "你已经在战斗中！"
+            }
+        
+        # 检查是否在线
+        if attacker.id not in manager.character_to_user:
+            return {
+                "type": "error",
+                "message": "你不在线"
+            }
+        
+        # 设置战斗状态（使用特殊标记，因为测试靶子不是Character）
+        # 我们使用一个特殊的负数ID来标记测试靶子战斗
+        dummy_combat_id = -dummy.id  # 使用负数避免与真实角色ID冲突
+        attacker.in_combat_with = dummy_combat_id
+        attacker.combat_turn = 0
+        self.db.commit()
+        
+        # 发送战斗开始消息
+        start_message = {
+            "type": "combat",
+            "message": f"训练开始！你开始攻击 {dummy.name}！",
+            "data": {
+                "combat_start": True,
+                "opponent": dummy.name,
+                "is_training_dummy": True
+            }
+        }
+        
+        await manager.send_personal_message(
+            start_message,
+            manager.character_to_user[attacker.id]
+        )
+        
+        # 启动战斗循环任务
+        combat_task = asyncio.create_task(
+            self._training_dummy_combat_loop(attacker.id, dummy.id)
+        )
+        self.active_combats[attacker.id] = combat_task
+        
+        return {
+            "type": "combat",
+            "message": f"训练开始！你开始攻击 {dummy.name}！",
+            "data": {
+                "combat_start": True,
+                "opponent": dummy.name,
+                "is_training_dummy": True
+            }
+        }
+    
+    async def _training_dummy_combat_loop(self, attacker_id: int, dummy_id: int):
+        """测试靶子战斗循环 - 只有玩家攻击，靶子不反击"""
+        try:
+            turn = 0
+            while True:
+                await asyncio.sleep(self.combat_turn_interval)
+                
+                # 重新获取角色和NPC数据
+                attacker = self.db.query(Character).filter(Character.id == attacker_id).first()
+                # 使用expire清除缓存，然后重新查询以确保获取最新数据
+                dummy = self.db.query(NPC).filter(NPC.id == dummy_id).first()
+                
+                if not attacker or not dummy:
+                    break
+                
+                # 刷新NPC对象以确保获取最新的properties（从数据库重新加载）
+                self.db.refresh(dummy)
+                
+                # 检查战斗状态是否仍然有效（使用负数ID标记）
+                if attacker.in_combat_with != -dummy_id:
+                    break
+                
+                # 检查是否在线
+                if attacker.id not in manager.character_to_user:
+                    await self._end_training_combat(attacker, dummy, reason="offline")
+                    break
+                
+                # 执行攻击（只有玩家攻击，靶子不反击）
+                result = self.combat_service.attack_training_dummy(attacker, dummy, self.config_service.get_combat_config())
+                
+                # 攻击后刷新NPC对象以获取更新后的properties
+                self.db.refresh(dummy)
+                
+                if result.get("type") == "combat":
+                    attacker_user_id = manager.character_to_user.get(attacker.id)
+                    if attacker_user_id:
+                        await manager.send_personal_message(result, attacker_user_id)
+                
+                turn += 1
+                attacker.combat_turn = turn
+                self.db.commit()
+                
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            print(f"Error in training dummy combat loop: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # 清理战斗状态
+            self._cleanup_training_combat(attacker_id, dummy_id)
+    
+    async def _end_training_combat(self, attacker: Character, dummy: NPC, reason: str):
+        """结束训练战斗"""
+        messages = {
+            "offline": "你离开了训练。",
+            "flee": "你停止了训练。"
+        }
+        
+        msg = messages.get(reason, "训练结束")
+        
+        attacker_user_id = manager.character_to_user.get(attacker.id)
+        if attacker_user_id:
+            await manager.send_personal_message({
+                "type": "combat",
+                "message": msg,
+                "data": {
+                    "combat_end": True,
+                    "is_training_dummy": True
+                }
+            }, attacker_user_id)
+        
+        self._cleanup_training_combat(attacker.id, dummy.id)
+    
+    def _cleanup_training_combat(self, attacker_id: int, dummy_id: int):
+        """清理训练战斗状态"""
+        attacker = self.db.query(Character).filter(Character.id == attacker_id).first()
+        
+        if attacker and attacker.in_combat_with == -dummy_id:
+            attacker.in_combat_with = None
+            attacker.combat_turn = 0
+            self.db.commit()
+        
+        # 取消战斗任务
+        if attacker_id in self.active_combats:
+            task = self.active_combats[attacker_id]
+            if not task.done():
+                task.cancel()
+            del self.active_combats[attacker_id]
+    
+    async def stop_training_combat(self, character: Character) -> Dict:
+        """停止训练战斗"""
+        # 刷新角色数据
+        character = self.db.query(Character).filter(Character.id == character.id).first()
+        
+        if not character or character.in_combat_with is None or character.in_combat_with >= 0:
+            return {
+                "type": "error",
+                "message": "你不在训练中"
+            }
+        
+        # 获取测试靶子ID（从负数转换回来）
+        dummy_id = -character.in_combat_with
+        dummy = self.db.query(NPC).filter(NPC.id == dummy_id).first()
+        
+        if dummy:
+            await self._end_training_combat(character, dummy, reason="flee")
+            return {
+                "type": "info",
+                "message": f"你停止了与 {dummy.name} 的训练"
+            }
+        
+        return {
+            "type": "error",
+            "message": "无法找到训练靶子"
         }
 
