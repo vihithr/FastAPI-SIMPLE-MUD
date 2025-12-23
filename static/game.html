@@ -196,8 +196,48 @@
     .dpad-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, auto);
-      gap: 4px;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 5px;
+      width: 100%;
+      aspect-ratio: 1;
+      max-width: 130px;
+      margin: 0 auto;
+    }
+    .dpad-grid button {
+      padding: 10px 6px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .dpad-grid button.dpad-direction-btn:not(:disabled):hover {
+      background: linear-gradient(135deg, #1e3a8a, #1e40af);
+      border-color: #3b82f6;
+      transform: scale(1.05);
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+    }
+    .dpad-grid button.dpad-direction-btn:not(:disabled):active {
+      transform: scale(0.95);
+    }
+    .dpad-grid button:not(:disabled):hover {
+      background: #1f2937;
+      border-color: #374151;
+    }
+    .dpad-grid button:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+      background: #0a0a0a;
+    }
+    .dpad-grid button[style*="display: none"] {
+      display: none !important;
     }
     .dpad {
       display: grid;

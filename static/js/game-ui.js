@@ -142,26 +142,89 @@ export function setupGamePage() {
       });
     };
 
-    // movement：固定四个方向，若该方向没有出口则置灰禁用
+    // movement：3x3布局的方向键
     const { group: moveGroup, row: moveRow } = createSection("移动");
     const displayMap = {
-      north: "北 (N)",
-      south: "南 (S)",
-      east: "东 (E)",
-      west: "西 (W)",
+      north: "北",
+      south: "南",
+      east: "东",
+      west: "西",
     };
     const allowed = new Set(available.movement || []);
-    ["north", "south", "east", "west"].forEach((dir) => {
-      const btn = document.createElement("button");
-      btn.className = "btn-sm";
-      btn.textContent = displayMap[dir];
-      if (!allowed.has(dir)) {
-        btn.disabled = true;
-      } else {
-        btn.addEventListener("click", () => safeSend(dir));
-      }
-      moveRow.appendChild(btn);
-    });
+    
+    // 清空原有的btn-row内容，改为3x3网格
+    moveRow.innerHTML = "";
+    moveRow.style.display = "flex";
+    moveRow.style.justifyContent = "center";
+    
+    // 创建3x3网格容器
+    const dpadGrid = document.createElement("div");
+    dpadGrid.className = "dpad-grid";
+    
+    // 只创建需要的5个按钮，使用CSS Grid定位
+    // 北 (row 1, col 2)
+    const btnNorth = document.createElement("button");
+    btnNorth.textContent = displayMap.north;
+    btnNorth.className = "dpad-direction-btn";
+    btnNorth.style.gridRow = "1";
+    btnNorth.style.gridColumn = "2";
+    if (!allowed.has("north")) {
+      btnNorth.disabled = true;
+    } else {
+      btnNorth.addEventListener("click", () => safeSend("north"));
+    }
+    dpadGrid.appendChild(btnNorth);
+    
+    // 西 (row 2, col 1)
+    const btnWest = document.createElement("button");
+    btnWest.textContent = displayMap.west;
+    btnWest.className = "dpad-direction-btn";
+    btnWest.style.gridRow = "2";
+    btnWest.style.gridColumn = "1";
+    if (!allowed.has("west")) {
+      btnWest.disabled = true;
+    } else {
+      btnWest.addEventListener("click", () => safeSend("west"));
+    }
+    dpadGrid.appendChild(btnWest);
+    
+    // 中心 (row 2, col 2) - 观察按钮
+    const btnCenter = document.createElement("button");
+    btnCenter.textContent = "观察";
+    btnCenter.className = "dpad-direction-btn";
+    btnCenter.style.gridRow = "2";
+    btnCenter.style.gridColumn = "2";
+    btnCenter.addEventListener("click", () => safeSend("look"));
+    dpadGrid.appendChild(btnCenter);
+    
+    // 东 (row 2, col 3)
+    const btnEast = document.createElement("button");
+    btnEast.textContent = displayMap.east;
+    btnEast.className = "dpad-direction-btn";
+    btnEast.style.gridRow = "2";
+    btnEast.style.gridColumn = "3";
+    if (!allowed.has("east")) {
+      btnEast.disabled = true;
+    } else {
+      btnEast.addEventListener("click", () => safeSend("east"));
+    }
+    dpadGrid.appendChild(btnEast);
+    
+    // 南 (row 3, col 2)
+    const btnSouth = document.createElement("button");
+    btnSouth.textContent = displayMap.south;
+    btnSouth.className = "dpad-direction-btn";
+    btnSouth.style.gridRow = "3";
+    btnSouth.style.gridColumn = "2";
+    if (!allowed.has("south")) {
+      btnSouth.disabled = true;
+    } else {
+      btnSouth.addEventListener("click", () => safeSend("south"));
+    }
+    dpadGrid.appendChild(btnSouth);
+    
+    // 将网格添加到移动组
+    moveRow.appendChild(dpadGrid);
     commandsContainer.appendChild(moveGroup);
 
     // global
