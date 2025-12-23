@@ -33,6 +33,9 @@ class Character(Base):
     room_id = Column(Integer, ForeignKey("rooms.id"), default=1, nullable=False)
     attack = Column(Integer, default=10, nullable=False)
     defense = Column(Integer, default=5, nullable=False)
+    # 战斗状态字段
+    in_combat_with = Column(Integer, ForeignKey("characters.id"), nullable=True)  # 正在与谁战斗
+    combat_turn = Column(Integer, default=0)  # 战斗轮次计数
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # 关系

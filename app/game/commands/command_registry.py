@@ -14,6 +14,7 @@ from .unequip_command import UnequipCommand
 from .use_command import UseCommand
 from .say_command import SayCommand
 from .help_command import HelpCommand
+from .flee_command import FleeCommand
 from .room_command import RoomCommandHandler
 
 
@@ -38,6 +39,7 @@ class CommandRegistry:
             UseCommand(),
             SayCommand(),
             HelpCommand(),
+            FleeCommand(),
         ]
         
         for cmd in commands:

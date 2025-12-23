@@ -149,7 +149,8 @@ class CombatService:
     def attack_character(
         self,
         attacker: Character,
-        defender_name: str
+        defender_name: str,
+        start_combat_loop: bool = False
     ) -> Dict:
         """攻击目标角色"""
         # 获取战斗配置
@@ -228,6 +229,22 @@ class CombatService:
             return {
                 "type": "error",
                 "message": "目标不在线"
+            }
+        
+        # 如果指定启动战斗循环，且双方都不在战斗中，则启动战斗循环
+        if start_combat_loop and attacker.in_combat_with is None and defender.in_combat_with is None:
+            from .combat_loop_service import CombatLoopService
+            combat_loop = CombatLoopService(self.db)
+            # 注意：这里需要异步调用，但当前方法是同步的
+            # 我们将在CombatCommand中处理异步调用
+            return {
+                "type": "combat",
+                "message": f"开始与 {defender.name} 的战斗！",
+                "data": {
+                    "start_combat_loop": True,
+                    "attacker_id": attacker.id,
+                    "defender_id": defender.id
+                }
             }
         
         # 使用无状态函数解析攻击
