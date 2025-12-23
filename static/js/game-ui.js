@@ -30,6 +30,11 @@ export function setupGamePage() {
   const mpBar = document.getElementById("mpBar");
   const miniMapSvg = document.getElementById("miniMapSvg");
   const miniMapScale = document.getElementById("miniMapScale");
+  const charCreateBox = document.getElementById("charCreateBox");
+  const charInfoBox = document.getElementById("charInfoBox");
+  const charCreateForm = document.getElementById("charCreateForm");
+  const charNameInput = document.getElementById("charNameInput");
+  const charCreateMessage = document.getElementById("charCreateMessage");
 
   if (
     !logEl ||
@@ -429,21 +434,82 @@ export function setupGamePage() {
     });
   }
 
+  // 显示/隐藏角色创建界面
+  const showCharCreate = (show) => {
+    if (charCreateBox) charCreateBox.style.display = show ? "block" : "none";
+    if (charInfoBox) charInfoBox.style.display = show ? "none" : "block";
+  };
+
+  // 角色创建表单处理
+  if (charCreateForm) {
+    charCreateForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const t = getToken();
+      if (!t) {
+        if (charCreateMessage) {
+          charCreateMessage.textContent = "未检测到 token，请先登录。";
+          charCreateMessage.className = "err";
+        }
+        return;
+      }
+      const name = charNameInput ? charNameInput.value.trim() : "";
+      if (!name) {
+        if (charCreateMessage) {
+          charCreateMessage.textContent = "请输入角色名。";
+          charCreateMessage.className = "err";
+        }
+        return;
+      }
+      const submitBtn = charCreateForm.querySelector("button[type='submit']");
+      if (submitBtn) submitBtn.disabled = true;
+      if (charCreateMessage) {
+        charCreateMessage.textContent = "创建中...";
+        charCreateMessage.className = "";
+      }
+      try {
+        const ch = await createCharacter(name, t);
+        updateCharacterPanel(ch);
+        showCharCreate(false);
+        appendLog("system", `角色 ${ch.name} 创建成功！点击上方"连接"按钮进入游戏。`);
+        if (charCreateMessage) {
+          charCreateMessage.textContent = "角色创建成功！";
+          charCreateMessage.className = "ok";
+        }
+        if (charNameInput) charNameInput.value = "";
+      } catch (err) {
+        const errMsg = err.detail || err.message || String(err);
+        appendLog("error", "创建角色失败: " + errMsg);
+        if (charCreateMessage) {
+          charCreateMessage.textContent = "创建失败: " + errMsg;
+          charCreateMessage.className = "err";
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
   // 初次尝试读取角色信息，若不存在则提示先创建角色
   (async () => {
     const t = getToken();
-    if (!t) return;
+    if (!t) {
+      showCharCreate(false);
+      return;
+    }
     try {
       const ch = await getCharacter(t);
       updateCharacterPanel(ch);
+      showCharCreate(false);
       appendLog(
         "system",
-        `已加载角色 ${ch.name}，点击上方“连接”按钮进入游戏。`
+        `已加载角色 ${ch.name}，点击上方"连接"按钮进入游戏。`
       );
     } catch (err) {
+      // 角色不存在，显示创建界面
+      showCharCreate(true);
       appendLog(
         "info",
-        "尚未创建角色，请使用命令 'help' 查看如何创建角色，或在命令中输入相关指令。"
+        "尚未创建角色，请在左侧面板创建角色后再进入游戏。"
       );
     }
   })();

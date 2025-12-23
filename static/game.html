@@ -272,6 +272,12 @@
       color: #a5b4fc;
       text-decoration: none;
     }
+    #charCreateMessage.ok {
+      color: #bbf7d0;
+    }
+    #charCreateMessage.err {
+      color: #fecaca;
+    }
   </style>
 </head>
 <body>
@@ -290,38 +296,51 @@
   <main>
     <section class="panel" id="leftPanel">
       <h2>角色</h2>
-      <div id="charName">未加载角色</div>
-      <div class="stat-row">
-        <span>等级</span><span id="charLevel">-</span>
-      </div>
-      <div class="stat-row">
-        <span>经验</span><span id="charExp">-</span>
-      </div>
-      <div class="stat-row">
-        <span>生命</span><span id="charHpLabel">-</span>
-      </div>
-      <div class="bar"><div id="hpBar" class="bar-fill"></div></div>
-      <div class="stat-row" style="margin-top:6px;">
-        <span>魔力</span><span id="charMpLabel">-</span>
-      </div>
-      <div class="bar"><div id="mpBar" class="bar-fill mp"></div></div>
-      <div class="stat-row" style="margin-top:6px;">
-        <span>攻击</span><span id="charAtk">-</span>
-      </div>
-      <div class="stat-row">
-        <span>防御</span><span id="charDef">-</span>
-      </div>
-      <div class="controls-group" style="margin-top:10px;">
-        <div class="controls-group-title">系统</div>
-        <div class="btn-row">
-          <button class="btn-sm primary" id="btnRefreshChar">刷新角色</button>
-          <button class="btn-sm" id="btnHelp">帮助 (help)</button>
+      <div id="charCreateBox" style="display:none;">
+        <div style="margin-bottom:10px;font-size:12px;color:#9ca3af;">
+          你还没有创建角色，请先创建角色才能进入游戏。
         </div>
+        <form id="charCreateForm">
+          <label style="display:block;margin-bottom:6px;font-size:12px;">角色名</label>
+          <input id="charNameInput" type="text" placeholder="输入角色名" required style="width:100%;box-sizing:border-box;padding:7px 9px;border-radius:8px;border:1px solid #1f2937;background:#020617;color:#e5e7eb;font-size:12px;margin-bottom:8px;" />
+          <button type="submit" style="width:100%;padding:8px;border-radius:999px;border:1px solid rgba(129,140,248,0.85);background:linear-gradient(135deg, #4a6bff, #7b5cff);color:#f9fafb;font-size:12px;cursor:pointer;">创建角色</button>
+        </form>
+        <div id="charCreateMessage" style="margin-top:8px;font-size:11px;min-height:20px;"></div>
       </div>
-      <div class="mini-map-box">
-        <div class="controls-group-title">迷你地图</div>
-        <input id="miniMapScale" type="range" min="0.6" max="1.4" step="0.1" value="1">
-        <svg id="miniMapSvg" viewBox="0 0 200 200" aria-label="mini map"></svg>
+      <div id="charInfoBox">
+        <div id="charName">未加载角色</div>
+        <div class="stat-row">
+          <span>等级</span><span id="charLevel">-</span>
+        </div>
+        <div class="stat-row">
+          <span>经验</span><span id="charExp">-</span>
+        </div>
+        <div class="stat-row">
+          <span>生命</span><span id="charHpLabel">-</span>
+        </div>
+        <div class="bar"><div id="hpBar" class="bar-fill"></div></div>
+        <div class="stat-row" style="margin-top:6px;">
+          <span>魔力</span><span id="charMpLabel">-</span>
+        </div>
+        <div class="bar"><div id="mpBar" class="bar-fill mp"></div></div>
+        <div class="stat-row" style="margin-top:6px;">
+          <span>攻击</span><span id="charAtk">-</span>
+        </div>
+        <div class="stat-row">
+          <span>防御</span><span id="charDef">-</span>
+        </div>
+        <div class="controls-group" style="margin-top:10px;">
+          <div class="controls-group-title">系统</div>
+          <div class="btn-row">
+            <button class="btn-sm primary" id="btnRefreshChar">刷新角色</button>
+            <button class="btn-sm" id="btnHelp">帮助 (help)</button>
+          </div>
+        </div>
+        <div class="mini-map-box">
+          <div class="controls-group-title">迷你地图</div>
+          <input id="miniMapScale" type="range" min="0.6" max="1.4" step="0.1" value="1">
+          <svg id="miniMapSvg" viewBox="0 0 200 200" aria-label="mini map"></svg>
+        </div>
       </div>
     </section>
 

@@ -66,12 +66,18 @@
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const { username, password } = e.target;
+      const registeredUsername = username.value;
       form.querySelector("button").disabled = true;
       try {
-        const data = await request("/register", "POST", { username: username.value, password: password.value });
-        log("注册成功", data);
+        const data = await request("/register", "POST", { username: registeredUsername, password: password.value });
+        log("注册成功！请前往登录页面登录。", data);
+        // 提示用户去登录
+        setTimeout(() => {
+          window.location.href = "/static/login.html";
+        }, 1500);
       } catch (err) {
-        log("注册失败: " + err.message);
+        const errMsg = err.message || String(err);
+        log("注册失败: " + errMsg);
       } finally {
         form.querySelector("button").disabled = false;
       }

@@ -134,11 +134,22 @@
     document.getElementById("createCharForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const { name } = e.target;
-      if (!token) return log("请先登录获取 token");
+      if (!token) {
+        log("请先登录获取 token");
+        return;
+      }
+      const submitBtn = e.target.querySelector("button[type='submit']");
+      submitBtn.disabled = true;
       try {
         const data = await request("/character/create", "POST", { name: name.value });
-        log("角色创建成功", data);
-      } catch (err) { log("创建失败", err.message); }
+        log("角色创建成功！角色名: " + data.name);
+        name.value = ""; // 清空输入框
+      } catch (err) {
+        const errMsg = err.message || String(err);
+        log("创建失败: " + errMsg);
+      } finally {
+        submitBtn.disabled = false;
+      }
     });
 
     // WebSocket
