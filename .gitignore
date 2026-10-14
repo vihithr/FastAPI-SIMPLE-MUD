@@ -1,0 +1,6 @@
+
+# ignore sqlite database files and python cache
+*.db
+__pycache__/
+*.py[cod]
+*$py.class
