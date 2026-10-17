@@ -1,0 +1,3 @@
+## 2024-03-24 - SQLAlchemy Lazy Loading Causes N+1 Queries
+**Learning:** In this FastAPI MUD Game architecture, SQLAlchemy relationships (like `Inventory.item` or `Equipment.item`) default to lazy loading. Iterating through queried collections and accessing relationships causes an N+1 query problem, creating significant performance bottlenecks on operations like fetching inventory, equipping items, using items, and getting character equipment.
+**Action:** Always use `.options(joinedload(...))` from `sqlalchemy.orm` when querying collections where related items will be accessed (e.g. `db.query(Inventory).options(joinedload(Inventory.item)).filter(...)`).
