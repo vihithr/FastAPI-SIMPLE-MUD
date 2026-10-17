@@ -1,0 +1,3 @@
+## 2026-10-17 - Resolving N+1 query patterns in SQLAlchemy Models
+**Learning:** This FastAPI MUD game utilizes SQLAlchemy with models like `Inventory` and `Equipment` that have lazy-loaded relationships to `Item`. Querying lists of these items and accessing `.item` (e.g. `inv_item.item.name`) without eager loading causes severe N+1 query performance bottlenecks.
+**Action:** Always use `.options(joinedload(Model.relationship))` (e.g. `.options(joinedload(Inventory.item))`) when retrieving collections in SQLAlchemy to ensure related entities are fetched in a single database query rather than multiple individual queries.
