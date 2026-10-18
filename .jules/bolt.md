@@ -1,0 +1,3 @@
+## 2024-03-24 - N+1 Query bottlenecks with SQLAlchemy default lazy loading
+**Learning:** In this FastAPI/SQLAlchemy application, relationships like `Inventory.item` and `Equipment.item` use lazy loading by default. Accessing these relationships in loops causes an N+1 query problem, fetching each related item individually. This impacts game loops like viewing inventory, checking equipment, using items, and equipping items.
+**Action:** When querying collections where related models will be accessed immediately in the loop, explicitly append `.options(joinedload(Relationship))` to load the related data in a single initial query.
