@@ -1,0 +1,3 @@
+## 2023-11-20 - Prevent N+1 queries for Character collections
+**Learning:** In the FastAPI MUD game, character collections like `Inventory` and `Equipment` lazy-load the associated `Item` models. Iterating over the user's inventory to fetch item names, stats, and types (e.g., in `get_character_inventory`, `equip_item`, `use_item`, and `get_character_equipment`) caused severe N+1 query bottlenecks specific to how the item management is structured.
+**Action:** Always use SQLAlchemy's `.options(joinedload(Model.relationship))` when querying `Inventory` and `Equipment` when their associated `Item` objects are needed in the same logic branch, significantly reducing the number of roundtrips to the SQLite database.
