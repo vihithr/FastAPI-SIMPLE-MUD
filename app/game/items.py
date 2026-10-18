@@ -1,12 +1,13 @@
 """物品和装备系统"""
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from ..models import Character, Item, Inventory, Equipment
 from typing import List, Optional
 
 
 def get_character_inventory(db: Session, character: Character) -> List[dict]:
     """获取角色物品栏"""
-    inventory_items = db.query(Inventory).filter(Inventory.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Use joinedload to prevent N+1 queries when accessing inv_item.item
+    inventory_items = db.query(Inventory).options(joinedload(Inventory.item)).filter(Inventory.character_id == character.id).all()
     result = []
     
     for inv_item in inventory_items:
@@ -70,7 +71,8 @@ def remove_item_from_inventory(db: Session, character: Character, item_id: int, 
 def equip_item(db: Session, character: Character, item_name: str) -> dict:
     """装备物品"""
     # 查找物品栏中的物品
-    inventory_items = db.query(Inventory).filter(Inventory.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Use joinedload to prevent N+1 queries when accessing inv_item.item
+    inventory_items = db.query(Inventory).options(joinedload(Inventory.item)).filter(Inventory.character_id == character.id).all()
     target_item = None
     
     for inv_item in inventory_items:
@@ -97,7 +99,8 @@ def equip_item(db: Session, character: Character, item_name: str) -> dict:
         }
     
     # 检查该槽位是否已有装备
-    existing_equipment = db.query(Equipment).filter(
+    # ⚡ Bolt Optimization: Use joinedload to prevent N+1 query for existing_equipment.item
+    existing_equipment = db.query(Equipment).options(joinedload(Equipment.item)).filter(
         Equipment.character_id == character.id,
         Equipment.slot == target_item.slot
     ).first()
@@ -158,7 +161,8 @@ def equip_item(db: Session, character: Character, item_name: str) -> dict:
 
 def unequip_item(db: Session, character: Character, slot: str) -> dict:
     """卸下装备"""
-    equipment = db.query(Equipment).filter(
+    # ⚡ Bolt Optimization: Use joinedload to prevent N+1 query for equipment.item
+    equipment = db.query(Equipment).options(joinedload(Equipment.item)).filter(
         Equipment.character_id == character.id,
         Equipment.slot == slot
     ).first()
@@ -204,7 +208,8 @@ def unequip_item(db: Session, character: Character, slot: str) -> dict:
 def use_item(db: Session, character: Character, item_name: str) -> dict:
     """使用物品"""
     # 查找物品栏中的物品
-    inventory_items = db.query(Inventory).filter(Inventory.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Use joinedload to prevent N+1 queries when accessing inv_item.item
+    inventory_items = db.query(Inventory).options(joinedload(Inventory.item)).filter(Inventory.character_id == character.id).all()
     target_item = None
     
     for inv_item in inventory_items:
@@ -265,7 +270,8 @@ def use_item(db: Session, character: Character, item_name: str) -> dict:
 
 def get_character_equipment(db: Session, character: Character) -> dict:
     """获取角色当前装备"""
-    equipment_items = db.query(Equipment).filter(Equipment.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Use joinedload to prevent N+1 queries when accessing eq.item
+    equipment_items = db.query(Equipment).options(joinedload(Equipment.item)).filter(Equipment.character_id == character.id).all()
     equipment_dict = {}
     
     for eq in equipment_items:
