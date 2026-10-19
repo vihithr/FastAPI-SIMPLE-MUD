@@ -1,12 +1,15 @@
 """物品和装备系统"""
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from ..models import Character, Item, Inventory, Equipment
 from typing import List, Optional
 
 
 def get_character_inventory(db: Session, character: Character) -> List[dict]:
     """获取角色物品栏"""
-    inventory_items = db.query(Inventory).filter(Inventory.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Use joinedload to eagerly load the related Item objects
+    # 🎯 Why: Prevents the N+1 query problem when iterating over inventory items and accessing inv_item.item
+    # 📊 Impact: Reduces queries from O(N+1) down to O(1) single query, drastically improving load time for large inventories
+    inventory_items = db.query(Inventory).options(joinedload(Inventory.item)).filter(Inventory.character_id == character.id).all()
     result = []
     
     for inv_item in inventory_items:
@@ -70,7 +73,8 @@ def remove_item_from_inventory(db: Session, character: Character, item_id: int, 
 def equip_item(db: Session, character: Character, item_name: str) -> dict:
     """装备物品"""
     # 查找物品栏中的物品
-    inventory_items = db.query(Inventory).filter(Inventory.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Eagerly load item to eliminate N+1 queries during inventory scan
+    inventory_items = db.query(Inventory).options(joinedload(Inventory.item)).filter(Inventory.character_id == character.id).all()
     target_item = None
     
     for inv_item in inventory_items:
@@ -204,7 +208,8 @@ def unequip_item(db: Session, character: Character, slot: str) -> dict:
 def use_item(db: Session, character: Character, item_name: str) -> dict:
     """使用物品"""
     # 查找物品栏中的物品
-    inventory_items = db.query(Inventory).filter(Inventory.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Eagerly load item to eliminate N+1 queries during inventory scan
+    inventory_items = db.query(Inventory).options(joinedload(Inventory.item)).filter(Inventory.character_id == character.id).all()
     target_item = None
     
     for inv_item in inventory_items:
@@ -265,7 +270,10 @@ def use_item(db: Session, character: Character, item_name: str) -> dict:
 
 def get_character_equipment(db: Session, character: Character) -> dict:
     """获取角色当前装备"""
-    equipment_items = db.query(Equipment).filter(Equipment.character_id == character.id).all()
+    # ⚡ Bolt Optimization: Use joinedload to eagerly load the related Item objects
+    # 🎯 Why: Prevents the N+1 query problem when assembling equipment information
+    # 📊 Impact: Reduces queries from O(N+1) down to O(1) single query
+    equipment_items = db.query(Equipment).options(joinedload(Equipment.item)).filter(Equipment.character_id == character.id).all()
     equipment_dict = {}
     
     for eq in equipment_items:
