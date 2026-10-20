@@ -1,0 +1,3 @@
+## 2023-10-24 - Prevent N+1 queries in SQLAlchemy lazy loaded relationships
+**Learning:** In the FastAPI MUD RPG Game backend, SQLAlchemy relationships (like `Inventory.item` or `Equipment.item`) default to lazy loading. Iterating over these collections (e.g., in `get_character_inventory` or `get_character_equipment`) without eager loading triggers a separate database query for each item, causing a significant N+1 query performance bottleneck.
+**Action:** Always use `.options(joinedload(...))` when querying collections where associated items will be accessed immediately, such as retrieving a character's inventory or equipment.
