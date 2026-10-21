@@ -1,0 +1,3 @@
+## 2024-05-18 - SQLAlchemy N+1 Queries
+**Learning:** In this FastAPI MUD game codebase, SQLAlchemy relationships (such as `Inventory.item` and `Equipment.item`) default to lazy loading. Iterating over collections and accessing related item properties causes an N+1 query bottleneck because it issues a separate database SELECT statement for each item's properties.
+**Action:** Use `.options(joinedload(...))` when querying collections to eager load related models. Next time I work with `db.query(Inventory)` or `db.query(Equipment)` that iterates properties (like `inv_item.item.name`), I should always eager load the `item` relation.
